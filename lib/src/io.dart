@@ -49,6 +49,8 @@ class IO<A> {
 
   IO<B> map<B>(FutureOr<B> Function(A) f) => _Map(this, f);
 
+  IO<B> as<B>() => _As<A, B>(this);
+
   IO<B> flatMap<B>(FutureOr<IO<B>> Function(A) f) => _FlatMap(this, f);
 
   IO<B> andThan<B>(FutureOr<IO<B>> Function() f) => _AndThan(this, f);
@@ -143,6 +145,23 @@ final class _Map<A, B> extends IO<B> {
     var lastResult = await _last.unsafeRun();
     return switch (lastResult.result) {
       Ok(value: Some(value: var v)) => IO.fromResult(Result.ok(Some(await _map(v)))),
+      Failure(err: var err) => IO.fromError(err),
+      _ => IO.empty()
+    };
+  }
+}
+
+final class _As<A, B> extends IO<B> {
+  final IO<A> _last;
+
+  _As(this._last);
+
+  Option<IO<A>> get last => Option.of(_last);
+
+  Future<IO<B>> unsafeRun() async {
+    var lastResult = await _last.unsafeRun();
+    return switch (lastResult.result) {
+      Ok(value: Some(value: var v)) => IO.fromResult(Result.ok(Some(v as B))),
       Failure(err: var err) => IO.fromError(err),
       _ => IO.empty()
     };
