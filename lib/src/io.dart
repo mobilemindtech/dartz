@@ -6,6 +6,8 @@ import 'option.dart';
 
 class Unit {}
 
+Unit unit() => Unit();
+
 class IO<A> {
   Result<Option<A>> _result = Result.ok(None());
 
@@ -46,6 +48,25 @@ class IO<A> {
   factory IO.attempt(FutureOr<A> Function() f) => _Attempt(f);
 
   factory IO.fromFuture(Future<A> Function() f) => _Attempt(() async => await f());
+
+  static IO<T> pipe2<A, B, T>(IO<A> a, IO<B> b, T Function(A, B) f) {
+    return a.flatMap((a) => b.flatMap((b) => IO.fromValue(f(a, b))));
+  }
+
+  static IO<T> pipe3<A, B, C, T>(IO<A> a, IO<B> b, IO<C> c, T Function(A, B, C) f) {
+    return a.flatMap((a) => b.flatMap((b) => c.flatMap((c) => IO.fromValue(f(a, b, c)))));
+  }
+
+  static IO<T> pipe4<A, B, C, D, T>(IO<A> a, IO<B> b, IO<C> c, IO<D> d, T Function(A, B, C, D) f) {
+    return a.flatMap(
+            (a) => b.flatMap((b) => c.flatMap((c) => d.flatMap((d) => IO.fromValue(f(a, b, c, d))))));
+  }
+
+  static IO<T> pipe5<A, B, C, D, E, T>(
+      IO<A> a, IO<B> b, IO<C> c, IO<D> d, IO<E> e, T Function(A, B, C, D, E) f) {
+    return a.flatMap((a) => b.flatMap((b) =>
+        c.flatMap((c) => d.flatMap((d) => e.flatMap((e) => IO.fromValue(f(a, b, c, d, e)))))));
+  }
 
   IO<B> map<B>(FutureOr<B> Function(A) f) => _Map(this, f);
 
@@ -408,4 +429,13 @@ final class _Ensure<A> extends IO<A> {
 T debug<T>(T value, String msg) {
   print("DEBUG >> $msg");
   return value;
+}
+
+extension IOPiping<A, B> on IO<A> {
+  IO<B> operator >>>(IO<B> Function(IO<A>) f) => f(this);
+  IO<B> operator >>(B Function(A) f) => this.map(f);
+}
+
+extension AnyPiping<A, B> on A {
+  B operator |(B Function(A) f) => f(this);
 }
