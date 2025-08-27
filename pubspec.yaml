@@ -1,6 +1,6 @@
 name: dio
 description: Dart Monad IO Runtime
-version: 1.0.0
+version: 0.0.1
 repository: https://github.com/mobilemindtec/dio.dart
 
 environment:
