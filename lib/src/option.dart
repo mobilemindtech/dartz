@@ -31,6 +31,10 @@ sealed class Option<T> {
     return switch (this) { Some(value: var v) => of(f(v)), None() => None() };
   }
 
+  Option<B> cast<B>() {
+    return map((x) => x as B);
+  }
+
   Option<A> flatMap<A>(Option<A> Function(T) f) {
     return switch (this) { Some(value: var v) => f(v), None() => None() };
   }
@@ -82,4 +86,9 @@ final class None<T> extends Option<T> {
   String toString() {
     return "None";
   }
+}
+
+
+extension AnyToOption<T> on T {
+  Option<T> get liftOption => Option.of(this);
 }

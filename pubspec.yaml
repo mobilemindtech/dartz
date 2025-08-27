@@ -1,7 +1,7 @@
-name: dartio
-description: Dart IO
+name: dio
+description: Dart Monad IO Runtime
 version: 1.0.0
-repository: https://github.com/mobilemindtec/dart-io.dart
+repository: https://github.com/mobilemindtec/dio.dart
 
 environment:
   sdk: ^3.4.4

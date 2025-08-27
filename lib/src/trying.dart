@@ -1,13 +1,28 @@
+import 'dart:async';
+
 import 'result.dart';
 
 import 'option.dart';
 
 class Try {
+
   static Result<T> of<T>(T Function() f) {
     try {
       return Result.ok(f());
-    } catch (err) {
-      return Result.failure(err as Exception);
+    } on Exception catch (err, _) {
+      return Result.failure(err);
+    } on Object catch (err, _) {
+      return Result.failure(Exception("$err"));
+    }
+  }
+
+  static Future<Result<T>> ofAsync<T>(FutureOr<T> Function() f) async {
+    try {
+      return Result.ok(await f());
+    } on Exception catch (err, _) {
+      return Result.failure(err);
+    } on Object catch (err, _) {
+      return Result.failure(Exception("$err"));
     }
   }
 

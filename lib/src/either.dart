@@ -5,9 +5,9 @@ sealed class Either<A, B> {
 
   bool get isRight => !isLeft;
 
-  factory Either.left(A value) => Left(value);
+  static Either<A, B> left<A, B>(A value) => Left(value);
 
-  factory Either.right(B value) => Right(value);
+  static Either<A, B> right<A, B>(B value) => Right(value);
 }
 
 class Left<A, B> extends Either<A, B> {

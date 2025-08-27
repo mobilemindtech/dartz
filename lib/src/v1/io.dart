@@ -1,8 +1,6 @@
 import 'dart:async';
-
-import 'result.dart';
-
-import 'option.dart';
+import '../result.dart';
+import '../option.dart';
 
 class Unit {}
 
@@ -31,23 +29,21 @@ class IO<A> {
 
   Option<IO> get last => None();
 
-  factory IO.fromResult(Result<Option<A>> res) => IO<A>()._setResult(res);
+  static IO<T> fromResult<T>(Result<Option<T>> res) => IO<T>()._setResult(res);
 
-  factory IO.fromValue(A a) => IO<A>()._setResult(Result.ok(Some(a)));
+  static IO<T> fromValue<T>(T a) => IO<T>()._setResult(Result.ok(Some(a)));
 
-  factory IO.empty() => IO<A>();
+  static IO<T> empty<T>() => IO<T>();
 
-  factory IO.fromError(Exception err) => IO<A>()._setResult(Result.failure(err));
+  static IO<T> fromError<T>(Exception err) => IO<T>()._setResult(Result.failure(err));
 
-  factory IO.value(A value) => _Pure(() => value);
-
-  factory IO.pure(A Function() f) => _Pure(f);
+  static IO<T> pure<T>(T Function() f) => _Pure(f);
 
   static IO<Unit> nohup() => _Pure(() => Unit());
 
-  factory IO.attempt(FutureOr<A> Function() f) => _Attempt(f);
+  static IO<T> attempt<T>(FutureOr<T> Function() f) => _Attempt(f);
 
-  factory IO.fromFuture(Future<A> Function() f) => _Attempt(() async => await f());
+  static IO<T> fromFuture<T>(Future<T> Function() f) => _Attempt(() async => await f());
 
   static IO<T> pipe2<A, B, T>(IO<A> a, IO<B> b, T Function(A, B) f) {
     return a.flatMap((a) => b.flatMap((b) => IO.fromValue(f(a, b))));
@@ -99,31 +95,22 @@ class IO<A> {
   IO<A> ensure(FutureOr<void> Function() f) => _Ensure(this, f);
 
   Future<IO<A>> unsafeRun() async {
-    throw new Exception("not implemented");
+    return this;
+  }
+
+  static Future<Unit> runPar(List<IO> ios) async {
+    var results = <Future<IO>>[];
+    for(var io in ios){
+      results.add(io.unsafeRun());
+    }
+    for(var future in results){
+      await future;
+    }
+
+    return Unit();
   }
 
 //Result<Option<A>> unsafeRun() {}
-}
-
-class IOApp {
-  IO<T> pipe2<A, B, T>(IO<A> a, IO<B> b, T Function(A, B) f) {
-    return a.flatMap((a) => b.flatMap((b) => IO.fromValue(f(a, b))));
-  }
-
-  IO<T> pipe3<A, B, C, T>(IO<A> a, IO<B> b, IO<C> c, T Function(A, B, C) f) {
-    return a.flatMap((a) => b.flatMap((b) => c.flatMap((c) => IO.fromValue(f(a, b, c)))));
-  }
-
-  IO<T> pipe4<A, B, C, D, T>(IO<A> a, IO<B> b, IO<C> c, IO<D> d, T Function(A, B, C, D) f) {
-    return a.flatMap(
-        (a) => b.flatMap((b) => c.flatMap((c) => d.flatMap((d) => IO.fromValue(f(a, b, c, d))))));
-  }
-
-  IO<T> pipe5<A, B, C, D, E, T>(
-      IO<A> a, IO<B> b, IO<C> c, IO<D> d, IO<E> e, T Function(A, B, C, D, E) f) {
-    return a.flatMap((a) => b.flatMap((b) =>
-        c.flatMap((c) => d.flatMap((d) => e.flatMap((e) => IO.fromValue(f(a, b, c, d, e)))))));
-  }
 }
 
 final class _Attempt<T> extends IO<T> {

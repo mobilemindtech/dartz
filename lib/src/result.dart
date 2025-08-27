@@ -1,7 +1,9 @@
+import 'dart:async';
+
 typedef void ifOk<T>(T value);
 typedef void ifFailure(Exception value);
 
-sealed class Result<T> {
+sealed  class Result<T> {
   static Result<A> ok<A>(A value) {
     return Ok(value);
   }
@@ -10,9 +12,34 @@ sealed class Result<T> {
     return Failure(e);
   }
 
+  static Result<T> from<T>(T Function() f) {
+    try {
+      return Result.ok(f());
+    } on Exception catch (err, _) {
+      return Result.failure(err);
+    } on Object catch (err, _) {
+      return Result.failure(Exception("$err"));
+    }
+  }
+
+  static Future<Result<T>> fromAsync<T>(FutureOr<T> Function() f) async {
+    try {
+      return Result.ok(await f());
+    } on Exception catch (err, _) {
+      return Result.failure(err);
+    } on Object catch (err, _) {
+      return Result.failure(Exception("$err"));
+    }
+  }
+  
   bool get isFailure => switch (this) { Failure<T>() => true, _ => false };
 
   bool get isOk => !isFailure;
+
+  Result<T> allways(Function f){
+    f();
+    return this;
+  }
 }
 
 class Ok<T> extends Result<T> {
@@ -44,4 +71,8 @@ class Failure<T> extends Result<T> {
   String toString() {
     return "Failure($err)";
   }
+}
+
+extension ResultLift<T> on T {
+  Result<T> get liftOk => Result.ok(this);
 }
