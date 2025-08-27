@@ -113,11 +113,16 @@ class IOApp {
           Ok(:var value)  => Result.ok(value.map((x) => pt.convert(x) as A)),
           Failure(:var failure) => Result.failure(failure)
         },
-      IORace pt =>
-          switch(await _race(pt.items, pt.ignoreErrors)){
+      IORaceM pt =>
+          switch(await _raceM(pt.items, pt.ignoreErrors)){
             Ok(:var value)  => Result.ok(value.cast()),
             Failure(:var failure) => Result.failure(failure)
           },
+      IORace pt =>
+        switch(await _race(pt.items, pt.ignoreErrors, pt.apply)){
+          Ok(:var value)  => Result.ok(value.cast()),
+          Failure(:var failure) => Result.failure(failure)
+        },
       IODebug pt =>
         switch(await eval(pt.last)){
           Ok(:var value)  => _debug(pt.last.runtimeType, pt.label ?? "??", "$value", Result.ok(value.cast())),
@@ -243,16 +248,17 @@ class IOApp {
     }
   }
 
-  Future<Result<Option<A>>> _race<A>(
+  Future<Result<Option<A>>> _raceM<A>(
       List<IO<A>> items, bool ignoreErrors) async {
     final completer = Completer<Option<A>>();
 
     for(var io in items){
+      final runnable = io;
       _runtime.execute(() async {
 
         if(completer.isCompleted) return;
 
-        switch(await eval(io)){
+        switch(await eval(runnable)){
            case Ok(:var value) when value.nonEmpty:
              if(completer.isCompleted) return;
             completer.complete(value);
@@ -273,6 +279,46 @@ class IOApp {
       return (await completer.future).liftOk;
     } on Exception catch (err, _){
       return Result.failure(err);
+    } catch(err){
+      return Result.failure(Exception("$err"));
+    }
+  }
+
+  Future<Result<Option<B>>> _race<A,B>(
+      List<A> items, bool ignoreErrors, FutureOr<B> Function(A) f) async {
+    final completer = Completer<Option<B>>();
+
+    for(var i in items){
+      final n = i;
+      _runtime.execute(() async {
+
+        if(completer.isCompleted) return;
+
+        try {
+          final result = await f(n);
+          if(completer.isCompleted) return;
+          completer.complete(Option.of(result));
+        } on Exception catch(err, _) {
+          if(!ignoreErrors){
+            if(completer.isCompleted) return;
+            completer.completeError(err);
+          }
+        } catch(err){
+          if(!ignoreErrors){
+            if(completer.isCompleted) return;
+            completer.completeError(Exception("$err"));
+          }
+        }
+
+      });
+    }
+
+    try{
+      return (await completer.future).liftOk;
+    } on Exception catch (err, _){
+      return Result.failure(err);
+    } catch(err){
+      return Result.failure(Exception("$err"));
     }
   }
 

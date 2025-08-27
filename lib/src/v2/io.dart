@@ -26,7 +26,8 @@ sealed class IO<A> {
       {int? maxParallelism}) => IOParMapM(items, maxParallelism, f);
 
   static IO<List<B>> parMap<A, B>(
-      List<A> items, FutureOr<B> Function(A) f, {int? maxParallelism}) => IOParMap(items, maxParallelism, f);
+      List<A> items, FutureOr<B> Function(A) f, {int? maxParallelism}) =>
+      IOParMap(items, maxParallelism, f);
 
 
   static IO<A> pure<A>(A value) => IOPure(() => value);
@@ -40,7 +41,11 @@ sealed class IO<A> {
   static IO<B> fold<A, B>(List<A> items, B initialValue, B Function(B, A) f) =>
     IOFold(items, initialValue, f);
 
-  static IO<A> race<A>(List<IO<A>> ios, {bool ignoreErrors = false}) => IORace(ios, ignoreErrors);
+  static IO<A> raceM<A>(List<IO<A>> ios, {bool ignoreErrors = false}) =>
+      IORaceM(ios, ignoreErrors);
+
+  static IO<B> race<A, B>(List<A> items, FutureOr<B> Function(A) f, {bool ignoreErrors = false}) =>
+      IORace(items, ignoreErrors, f);
 
 }
 
@@ -106,10 +111,19 @@ class IOParMap<A, B> extends IO<List<B>> {
   List<B> convert(List value) => value.map((x) => x as B).toList();
 }
 
-class IORace<A> extends IO<A> {
+class IORaceM<A> extends IO<A> {
   final List<IO<A>> items;
   final bool ignoreErrors;
-  IORace(this.items, this.ignoreErrors);
+  IORaceM(this.items, this.ignoreErrors);
+}
+
+class IORace<A, B> extends IO<B> {
+  final List<A> items;
+  final bool ignoreErrors;
+  final FutureOr<B> Function(A) computation;
+  IORace(this.items, this.ignoreErrors, this.computation);
+
+  FutureOr<B> apply(A value) => computation(value);
 }
 
 class IOAndThan<A, B> extends IO<B> {

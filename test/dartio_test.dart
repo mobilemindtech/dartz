@@ -182,37 +182,21 @@ void main() {
         expect("success", result.get());
     });
 
+    test('test race', () async {
+      final tasks = List.generate(10, (i) => i);
+
+      final computeTask = (int n) async {
+        // Simular trabalho de duração variada
+        final duration = Duration(milliseconds: n != 5 ? 2000 : 10);
+        await Future.delayed(duration);
+        return n;
+      };
+
+      final result = await IO.race(tasks, computeTask).unsafeRun();
+
+      expect(true, result.nonEmpty);
+      expect(5, result.get());
+
+    });
   });
 }
-
-/*
-void test() async {
-  final executor = Runtime(workerCount: 4);
-
-  // Criar algumas tarefas com diferentes durações
-  final tasks = List.generate(100, (i) => i);
-
-  final computeTask = (int n) => IO.fromAsync(() async {
-    // Simular trabalho de duração variada
-    final duration = Duration(milliseconds: (n % 20) * 10);
-    await Future.delayed(duration);
-    return n * n;
-  });
-
-  final program = IO.parMap(tasks, computeTask, maxParallelism: 4);
-
-  print('Iniciando execução com work stealing...');
-  final stopwatch = Stopwatch()..start();
-
-  final results = await program.run(executor);
-
-  stopwatch.stop();
-  print('Tarefas completadas: ${results.length}');
-  print('Tempo total: ${stopwatch.elapsedMilliseconds}ms');
-
-  final stats = executor.getStats();
-  print('Estatísticas do executor: $stats');
-
-  executor.dispose();
-}
- */
