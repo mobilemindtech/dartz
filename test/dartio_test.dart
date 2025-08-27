@@ -198,5 +198,30 @@ void main() {
       expect(5, result.get());
 
     });
+
+    test('test retry', () async {
+      int n = 0;
+      final result = await IO.attempt((){
+        if(n++ == 3) {
+          return 1;
+        }
+        throw 'error';
+      }).retry(5)
+          .unsafeRun();
+
+      expect(true, result.nonEmpty);
+      expect(1, result.get());
+    });
+
+    test('test timeout', () async {
+      final stopwatch = Stopwatch()..start();
+      final result = await IO.pure(1).timeout(1.seconds)
+          .unsafeRun();
+      stopwatch.stop();
+      expect(true, result.nonEmpty);
+      expect(1, result.get());
+      expect(true, stopwatch.elapsed.inMilliseconds > 1000);
+    });
+
   });
 }

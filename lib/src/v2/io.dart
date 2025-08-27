@@ -22,6 +22,10 @@ sealed class IO<A> {
 
   IO<A> recover(IO<A> Function(Exception) f) => IORecover(this, f);
 
+  IO<A> retry(int retryCount) => IORetry(this, retryCount);
+
+  IO<A> timeout(Duration duration) => IOTimeout(this, duration);
+
   static IO<List<B>> parMapM<A, B>(List<A> items, IO<B> Function(A) f,
       {int? maxParallelism}) => IOParMapM(items, maxParallelism, f);
 
@@ -176,4 +180,23 @@ class IODebug<A> extends IO<A> {
   final IO<A> last;
   final String? label;
   IODebug(this.last, this.label);
+}
+
+class IOTimeout<A> extends IO<A> {
+  final IO<A> last;
+  final Duration duration;
+  IOTimeout(this.last, this.duration);
+}
+
+class IORetry<A> extends IO<A> {
+  final IO<A> last;
+  final int retryCount;
+  IORetry(this.last, this.retryCount);
+}
+
+extension IntToDuration on int {
+  Duration get seconds => Duration(seconds: this);
+  Duration get minutes => Duration(minutes: this);
+  Duration get micros => Duration(microseconds: this);
+  Duration get millis => Duration(milliseconds: this);
 }
