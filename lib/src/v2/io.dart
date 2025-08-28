@@ -22,9 +22,12 @@ sealed class IO<A> {
 
   IO<A> recover(IO<A> Function(Exception) f) => IORecover(this, f);
 
-  IO<A> retry(int retryCount) => IORetry(this, retryCount);
+  IO<A> retry(int retryCount, {Duration interval = const Duration(milliseconds: 10)}) =>
+      IORetry(this, retryCount, interval);
 
   IO<A> timeout(Duration duration) => IOTimeout(this, duration);
+
+  IO<A> sleep(Duration duration) => IOSleep(this, duration);
 
   static IO<List<B>> parMapM<A, B>(List<A> items, IO<B> Function(A) f,
       {int? maxParallelism}) => IOParMapM(items, maxParallelism, f);
@@ -188,10 +191,17 @@ class IOTimeout<A> extends IO<A> {
   IOTimeout(this.last, this.duration);
 }
 
+class IOSleep<A> extends IO<A> {
+  final IO<A> last;
+  final Duration duration;
+  IOSleep(this.last, this.duration);
+}
+
 class IORetry<A> extends IO<A> {
   final IO<A> last;
   final int retryCount;
-  IORetry(this.last, this.retryCount);
+  final Duration interval;
+  IORetry(this.last, this.retryCount, this.interval);
 }
 
 extension IntToDuration on int {

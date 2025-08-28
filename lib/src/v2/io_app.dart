@@ -129,25 +129,32 @@ class IOApp {
           Failure(:var failure) =>
               _debug(pt.last.runtimeType, pt.label ?? "??", "$failure", Result.failure(failure))
         },
-      IORetry pt => await _retry(pt.last as IO<A>, pt.retryCount),
+      IORetry pt => await _retry(pt.last as IO<A>, pt.retryCount, pt.interval),
+      IOSleep pt => await _sleep(pt.last as IO<A>, pt.duration),
       IOTimeout pt => await _timeout(pt.last as IO<A>, pt.duration)
       //_ => Result.failure(Exception("io not match"))
     };
   }
 
-  Future<Result<Option<A>>> _retry<A>(IO<A> io, int retryCount) async {
+  Future<Result<Option<A>>> _retry<A>(IO<A> io, int retryCount, Duration interval) async {
     return switch(await eval(io)){
       Failure(:var failure) =>
-        retryCount == 1 ? Result.failure(failure) : _retry(io, retryCount--),
+        retryCount == 1 ? Result.failure(failure) : _tap(await Future.delayed(interval), _retry(io, --retryCount, interval)),
       Ok(:var value) => Result.ok(value)
     };
   }
 
-  Future<Result<Option<A>>> _timeout<A>(IO<A> io, Duration duration) async {
+  Future<Result<Option<A>>> _sleep<A>(IO<A> io, Duration duration) async {
     return switch(await eval(io)){
       Failure(:var failure) => Result.failure(failure),
       Ok(:var value) => _tap(await Future.delayed(duration), Result.ok(value))
     };
+  }
+
+  Future<Result<Option<A>>> _timeout<A>(IO<A> io, Duration duration) async {
+    return eval(io)
+        .timeout(duration)
+        .catchError((err) => Result.failure<Option<A>>(err));
   }
 
   Future<Result<Option<List<B>>>> _parMapM<A, B>(List<A> items, int? maxParallelism, IO<B> Function(A) f) async {

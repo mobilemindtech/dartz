@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/src/v2/io.dart';
 import 'package:dio/src/v2/io_app.dart';
 import 'package:test/test.dart';
@@ -206,16 +208,16 @@ void main() {
           return 1;
         }
         throw 'error';
-      }).retry(5)
+      }).retry(5, interval: 200.millis)
           .unsafeRun();
 
       expect(true, result.nonEmpty);
       expect(1, result.get());
     });
 
-    test('test timeout', () async {
+    test('test sleep', () async {
       final stopwatch = Stopwatch()..start();
-      final result = await IO.pure(1).timeout(1.seconds)
+      final result = await IO.pure(1).sleep(1.seconds)
           .unsafeRun();
       stopwatch.stop();
       expect(true, result.nonEmpty);
@@ -223,5 +225,29 @@ void main() {
       expect(true, stopwatch.elapsed.inMilliseconds > 1000);
     });
 
+    test('test timeout with failure', () async {
+      try {
+        await IO.fromAsync(() async => Future.delayed(1.seconds))
+            .timeout(500.millis)
+            .unsafeRun();
+        fail("expect TimeoutException");
+      } on TimeoutException catch(err, _) {
+        print("fine!");
+      } catch(err) {
+        fail("expect TimeoutException, but receive $err");
+      }
+    });
+
+    test('test timeout with success', () async {
+      try {
+        await IO.fromAsync(() async => Future.delayed(200.millis))
+            .timeout(500.millis)
+            .unsafeRun();
+      } on TimeoutException catch(err, _) {
+        fail("expect success, but receive TimeoutException");
+      } catch(err) {
+        fail("expect success, but receive $err");
+      }
+    });
   });
 }
