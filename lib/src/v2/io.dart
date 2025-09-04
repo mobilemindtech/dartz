@@ -12,15 +12,21 @@ sealed class IO<A> {
 
   IO<A> filter(bool Function(A) f) => IOFilter(this, f);
 
-  IO<A> or(A Function() f) => IOOr(this, f);
+  IO<A> filterWith(IO<bool> Function(A) f) => IOFilterWith(this, f);
+
+  IO<A> or(A value) => IOOr(this, value);
 
   IO<A> orElse(IO<A> Function() f) => IOOrElse(this, f);
 
   IO<A> debug({String? label}) => IODebug(this, label);
 
-  IO<A> catchAll(Function(Exception) f) => IOCatchAll(this, f);
+  IO<A> catchAll(void Function(Exception) f) => IOCatchAll(this, f);
 
-  IO<A> recover(IO<A> Function(Exception) f) => IORecover(this, f);
+  IO<A> recover(A Function(Exception) f) => IORecover(this, f);
+
+  IO<A> recoverWith(IO<A> Function(Exception) f) => IORecoverWith(this, f);
+
+  IO<A> failWith(FutureOr<Exception?> Function(A) f) => IOFailWith(this, f);
 
   IO<A> retry(int retryCount, {Duration interval = const Duration(milliseconds: 10)}) =>
       IORetry(this, retryCount, interval);
@@ -29,21 +35,25 @@ sealed class IO<A> {
 
   IO<A> sleep(Duration duration) => IOSleep(this, duration);
 
-  static IO<List<B>> parMapM<A, B>(List<A> items, IO<B> Function(A) f,
-      {int? maxParallelism}) => IOParMapM(items, maxParallelism, f);
+  IO<A> rateLimit(Duration rateInterval) => IORateLimit(this, rateInterval);
 
-  static IO<List<B>> parMap<A, B>(
+  IO<B> cast<B>() => this as IO<B>;
+
+  static IO<A> fromError<A>(Exception err) => IOFromError(err);
+
+  static IO<List<B>> traverseM<A, B>(List<A> items, IO<B> Function(A) f,
+      {int? maxParallelism}) => IOTraverseM(items, maxParallelism, f);
+
+  static IO<List<B>> traverse<A, B>(
       List<A> items, FutureOr<B> Function(A) f, {int? maxParallelism}) =>
-      IOParMap(items, maxParallelism, f);
+      IOTraverse(items, maxParallelism, f);
 
 
   static IO<A> pure<A>(A value) => IOPure(() => value);
 
   static IO<A> fromPure<A>(A Function() value) => IOPure(value);
 
-  static IO<A> attempt<A>(A Function() f) => IOAttempt(f);
-
-  static IO<A> fromAsync<A>(Future<A> Function() f) => IOAsync(f);
+  static IO<A> attempt<A>(FutureOr<A> Function() f) => IOAttempt(f);
 
   static IO<B> fold<A, B>(List<A> items, B initialValue, B Function(B, A) f) =>
     IOFold(items, initialValue, f);
@@ -87,31 +97,28 @@ class IOPure<A> extends IO<A> {
 }
 
 class IOAttempt<A, B> extends IO<B> {
-  final B Function() computation;
+  final FutureOr<B> Function() computation;
   IOAttempt(this.computation);
+
+  FutureOr<B> apply() => computation();
 }
 
-class IOAsync<A, B> extends IO<B> {
-  final Future<B> Function() computation;
-  IOAsync(this.computation);
-}
-
-class IOParMapM<A, B> extends IO<List<B>> {
+class IOTraverseM<A, B> extends IO<List<B>> {
   final List<A> items;
   final IO<B> Function(A) computation;
   final int? maxParallelism;
-  IOParMapM(this.items, this.maxParallelism, this.computation);
+  IOTraverseM(this.items, this.maxParallelism, this.computation);
 
   IO<B> apply(dynamic value) => computation(value as A);
 
   List<B> convert(List value) => value.map((x) => x as B).toList();
 }
 
-class IOParMap<A, B> extends IO<List<B>> {
+class IOTraverse<A, B> extends IO<List<B>> {
   final List<A> items;
   final FutureOr<B> Function(A) computation;
   final int? maxParallelism;
-  IOParMap(this.items, this.maxParallelism, this.computation);
+  IOTraverse(this.items, this.maxParallelism, this.computation);
 
   FutureOr<B> apply(dynamic value) => computation(value as A);
 
@@ -144,7 +151,7 @@ class IOForeach<A> extends IO<A> {
   final Function(A) computation;
   IOForeach(this.last, this.computation);
 
-  dynamic apply(A value) => computation(value);
+  FutureOr apply(A value) => computation(value);
 }
 
 class IOFilter<A> extends IO<A> {
@@ -155,10 +162,18 @@ class IOFilter<A> extends IO<A> {
   bool apply(A value) => computation(value);
 }
 
+class IOFilterWith<A> extends IO<A> {
+  final IO<A> last;
+  final IO<bool> Function(A) computation;
+  IOFilterWith(this.last, this.computation);
+
+  IO<bool> apply(A value) => computation(value);
+}
+
 class IOOr<A> extends IO<A> {
   final IO<A> last;
-  final A Function() computation;
-  IOOr(this.last, this.computation);
+  final A value;
+  IOOr(this.last, this.value);
 }
 
 class IOOrElse<A> extends IO<A> {
@@ -175,8 +190,14 @@ class IOCatchAll<A> extends IO<A> {
 
 class IORecover<A> extends IO<A> {
   final IO<A> last;
-  final IO<A> Function(Exception) computation;
+  final A Function(Exception) computation;
   IORecover(this.last, this.computation);
+}
+
+class IORecoverWith<A> extends IO<A> {
+  final IO<A> last;
+  final IO<A> Function(Exception) computation;
+  IORecoverWith(this.last, this.computation);
 }
 
 class IODebug<A> extends IO<A> {
@@ -204,9 +225,20 @@ class IORetry<A> extends IO<A> {
   IORetry(this.last, this.retryCount, this.interval);
 }
 
-extension IntToDuration on int {
-  Duration get seconds => Duration(seconds: this);
-  Duration get minutes => Duration(minutes: this);
-  Duration get micros => Duration(microseconds: this);
-  Duration get millis => Duration(milliseconds: this);
+class IORateLimit<A> extends IO<A>{
+  final IO<A> last;
+  final Duration rateInterval;
+  IORateLimit(this.last, this.rateInterval);
 }
+
+class IOFailWith<A> extends IO<A>{
+  final IO<A> last;
+  final FutureOr<Exception?> Function(A) computation;
+  IOFailWith(this.last, this.computation);
+}
+
+class IOFromError<A> extends IO<A>{
+  final Exception err;
+  IOFromError(this.err);
+}
+

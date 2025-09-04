@@ -3,7 +3,7 @@
 #
 # This enables the 'recommended' set of lints from `package:lints`.
 # This set helps identify many issues that may lead to problems when running
-# or consuming Dart code, and enforces writing Dart using a single, idiomatic
+# or consuming Dart code, and enforces writing Dart using a single, idartzmatic
 # style and format.
 #
 # If you want a smaller set of lints you can change this to specify

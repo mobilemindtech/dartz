@@ -2,7 +2,7 @@
 
 ```dart
 
-import 'package:dio/dio.dart';
+import 'package:dartz/dartz.dart';
 
 final tasks = List.generate(10, (i) => i);
 

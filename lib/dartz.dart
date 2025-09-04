@@ -11,5 +11,8 @@ export 'src/either.dart';
 export 'src/app_exception.dart';
 export 'src/v2/io.dart';
 export 'src/v2/io_app.dart';
+export 'src/v2/sintax/sintax.dart';
+export 'src/v2/sintax/mapn.dart';
+export 'src/v2/sintax/mapn.dart';
 
 // TODO: Export any libraries intended for clients of this package.

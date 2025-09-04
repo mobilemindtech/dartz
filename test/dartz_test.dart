@@ -1,7 +1,6 @@
 import 'dart:async';
 
-import 'package:dio/src/v2/io.dart';
-import 'package:dio/src/v2/io_app.dart';
+import 'package:dartz/dartz.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -14,14 +13,14 @@ void main() {
     test('Test parMap', () async {
       final tasks = List.generate(100, (i) => i);
 
-      final computeTask = (int n) => IO.fromAsync(() async {
+      final computeTask = (int n) => IO.attempt(() async {
         // Simular trabalho de duração variada
         final duration = Duration(milliseconds: (n % 20) * 10);
         await Future.delayed(duration);
         return n * n;
       });
 
-      final taskIO = IO.parMapM(tasks, computeTask);
+      final taskIO = IO.traverseM(tasks, computeTask);
 
       print('Iniciando execução com work stealing...');
       final stopwatch = Stopwatch()..start();
@@ -56,7 +55,7 @@ void main() {
         return n * n;
       };
 
-      final taskIO = IO.parMap(tasks, computeTask);
+      final taskIO = IO.traverse(tasks, computeTask);
 
       print('Iniciando execução com work stealing...');
       final stopwatch = Stopwatch()..start();
@@ -123,7 +122,7 @@ void main() {
     test('test filter NOT found or', () async {
       var result = await IO.pure(20)
           .filter((x) => x > 20)
-          .or(() => 10)
+          .or(10)
           .unsafeRun();
       expect(true, result.nonEmpty);
       expect(10, result.get());
@@ -132,7 +131,7 @@ void main() {
     test('test filter found or', () async {
       var result = await IO.pure(20)
           .filter((x) => x >= 20)
-          .or(() => 10)
+          .or(10)
           .unsafeRun();
       expect(true, result.nonEmpty);
       expect(20, result.get());
@@ -178,7 +177,7 @@ void main() {
 
     test('test recover', () async {
         var result = await IO.attempt<String>(() => throw Exception("custom error"))
-            .recover((_) => IO.pure("success"))
+            .recoverWith((_) => IO.pure("success"))
             .unsafeRun();
         expect(true, result.nonEmpty);
         expect("success", result.get());
@@ -227,7 +226,7 @@ void main() {
 
     test('test timeout with failure', () async {
       try {
-        await IO.fromAsync(() async => Future.delayed(1.seconds))
+        await IO.attempt(() async => Future.delayed(1.seconds))
             .timeout(500.millis)
             .unsafeRun();
         fail("expect TimeoutException");
@@ -240,7 +239,7 @@ void main() {
 
     test('test timeout with success', () async {
       try {
-        await IO.fromAsync(() async => Future.delayed(200.millis))
+        await IO.attempt(() async => Future.delayed(200.millis))
             .timeout(500.millis)
             .unsafeRun();
       } on TimeoutException catch(err, _) {

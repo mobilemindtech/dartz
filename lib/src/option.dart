@@ -1,9 +1,14 @@
+import 'dart:async';
 import 'dart:math';
 
 sealed class Option<T> {
   static Option<A> of<A>(A? value) {
     if (value != null) return Some(value);
     return None();
+  }
+
+  static FutureOr<Option<A>> ofAsync<A>(FutureOr<A?> value) async {
+    return of(await value);
   }
 
   static Option<String> str(String? value) {

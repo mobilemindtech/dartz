@@ -2,11 +2,12 @@
 import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
-import 'package:dio/src/result.dart';
-import 'package:dio/src/option.dart';
-import 'package:dio/src/trying.dart';
-import 'package:dio/src/v2/runtime.dart';
-import 'package:dio/src/v2/io.dart';
+import 'package:flutter/foundation.dart';
+import 'package:dartz/src/result.dart';
+import 'package:dartz/src/option.dart';
+import 'package:dartz/src/trying.dart';
+import 'package:dartz/src/v2/runtime.dart';
+import 'package:dartz/src/v2/io.dart';
 
 
 class IOApp {
@@ -19,20 +20,86 @@ class IOApp {
   }
 
   Future<Option<A>> unsafeRun<A>(IO<A> io) async {
-    return switch(await eval(io)){
-      Ok(:var value) => value,
-      Failure f => throw f.failure
+
+    try {
+      switch(await eval(io)) {
+        case Ok(value: var value):
+          return value;
+        case Failure(failure: var failure):
+          //debugPrintStack(stackTrace: StackTrace.current, label: 'IOApp', maxFrames: 10);
+          return throw failure;
+      }
+    } catch(err, stacktrace){
+      print("Error $err:\n $stacktrace");
+      debugPrintStack(stackTrace: stacktrace, label: 'IOApp', maxFrames: 10);
+      return throw err;
+    }
+  }
+
+  Future<Option<List>> unsafeRunMany(List<IO> items, {bool continueOnError = true, int? maxParallelism}) async {
+    final results = List.filled(items.length, null);
+    final completer = Completer<Option<List>>();
+    var completed = 0;
+
+    // Função para processar um item
+    void processItem(int index) {
+
+      _runtime.execute(() async {
+
+        if(completer.isCompleted) return;
+
+        var r = await eval(items[index]);
+        switch (r) {
+          case Ok(:var value) when value.nonEmpty:
+          //print("index=$index");
+            results[index] = value.get();
+            completed++;
+            if (completed == items.length) {
+              if(completer.isCompleted) return;
+              completer.complete(results.liftOption);
+            }
+            break;
+          case Ok _:
+            if(completer.isCompleted) return;
+            completer.complete(None());
+            break;
+          case Failure(:var err):
+            if(completer.isCompleted) return;
+            completer.completeError(err);
+            break;
+        }
+      });
+    }
+
+    final max = maxParallelism ?? _runtime.workerCount;
+    // Distribuir tarefas inicialmente
+    for (var i = 0; i < items.length && i < max; i++) {
+      final index = i;
+      processItem(index);
+    }
+
+    var nextIndex = max;
+    // Adicionar callbacks para work stealing
+    _runtime.onIdle = () {
+      if (nextIndex < items.length) {
+        final index = nextIndex++;
+        processItem(index);
+      }
     };
+
+    return await completer.future;
   }
 
   Result<Option<A>> _resultOf<A>(A value) => Result.ok(Option.of(value));
 
+  Future<Result<Option<A>>> _tryExec<A>(FutureOr<A> Function() f) =>
+      Result.fromAsync(() async => Option.ofAsync(await f()));
+
+
   Future<Result<Option<A>>> eval<A>(IO<A> io) async {
     return switch(io){
       IOPure pt => _resultOf(pt.computation()),
-      IOAttempt pt => Try.of(() => Option.of(pt.computation())),
-      IOAsync pt =>
-          Try.ofAsync(() async => Option.of((await pt.computation()))),
+      IOAttempt pt => _tryExec(() async => await pt.apply()),
       IOMap pt =>
         switch(await eval(pt.last)){
           Ok(:var value) when value.nonEmpty => _resultOf(pt.apply(value.get())),
@@ -73,9 +140,20 @@ class IOApp {
           Ok _ => Result.ok(None()),
           Failure(:var failure) => Result.failure(failure)
         },
+      IOFilterWith pt =>
+        switch(await eval(pt.last)){
+          Ok(:var value) when value.nonEmpty =>
+            switch(await eval(pt.apply(value.get()))){
+              Ok(value: Some(value: var b)) => Result.ok(b ? value.cast() : None()),
+              Ok _ => Result.ok(None()),
+              Failure(:var failure) => Result.failure(failure)
+            },
+          Ok _ => Result.ok(None()),
+          Failure(:var failure) => Result.failure(failure)
+        },
       IOOr pt =>
         switch(await eval(pt.last)){
-          Ok(value: None()) => _resultOf(pt.computation()),
+          Ok(value: None()) => _resultOf(pt.value),
           Ok(:var value) => Result.ok(value.cast()),
           Failure(:var failure) => Result.failure(failure)
         },
@@ -97,19 +175,24 @@ class IOApp {
       IORecover pt =>
         switch(await eval(pt.last)){
           Ok(:var value) => Result.ok(value.cast()),
-          Failure(:var failure) =>
-            switch(await eval(pt.computation(failure))){
-              Ok(:var value) => Result.ok(value.cast()),
-              Failure(:var failure) => Result.failure(failure)
-            }
+          Failure(:var failure) => _resultOf(pt.computation(failure))
         },
-      IOParMapM pt =>
-          switch(await _parMapM(pt.items, pt.maxParallelism,  pt.apply)){
+      IORecoverWith pt =>
+        switch(await eval(pt.last)){
+          Ok(:var value) => Result.ok(value.cast()),
+          Failure(:var failure) =>
+          switch(await eval(pt.computation(failure))){
+            Ok(:var value) => Result.ok(value.cast()),
+            Failure(:var failure) => Result.failure(failure)
+          }
+        },
+      IOTraverseM pt =>
+          switch(await _traverseM(pt.items,  pt.maxParallelism, pt.apply)){
             Ok(:var value)  => Result.ok(value.map((x) => pt.convert(x) as A)),
             Failure(:var failure) => Result.failure(failure)
           },
-      IOParMap pt =>
-        switch(await _parMap(pt.items, pt.maxParallelism,  pt.apply)){
+      IOTraverse pt =>
+        switch(await _traverse(pt.items,  pt.maxParallelism, pt.apply)){
           Ok(:var value)  => Result.ok(value.map((x) => pt.convert(x) as A)),
           Failure(:var failure) => Result.failure(failure)
         },
@@ -129,10 +212,30 @@ class IOApp {
           Failure(:var failure) =>
               _debug(pt.last.runtimeType, pt.label ?? "??", "$failure", Result.failure(failure))
         },
-      IORetry pt => await _retry(pt.last as IO<A>, pt.retryCount, pt.interval),
-      IOSleep pt => await _sleep(pt.last as IO<A>, pt.duration),
-      IOTimeout pt => await _timeout(pt.last as IO<A>, pt.duration)
-      //_ => Result.failure(Exception("io not match"))
+      IORetry pt => await _retry(pt.last.cast(), pt.retryCount, pt.interval),
+      IOSleep pt => await _sleep(pt.last.cast(), pt.duration),
+      IOTimeout pt => await _timeout(pt.last.cast(), pt.duration),
+      IORateLimit pt => await _rateLimit(pt.last.cast(), pt.rateInterval),
+      IOFailWith pt =>
+        switch(await eval(pt.last)){
+          Ok(value: Some(:var value))  =>
+            switch (await pt.computation(value)) {
+              null => Result.ok(value.cast()),
+              Exception ex => Result.failure(ex)
+            },
+          Ok(value: None()) => Result.ok(None()),
+          Failure(:var failure) =>
+              Result.failure(failure)
+        },
+      IOFromError pt => Result.failure(pt.err)
+    };
+  }
+
+  Future<Result<Option<A>>> _rateLimit<A>(IO<A> io, Duration interval) async {
+    final future = Future.delayed(interval);
+    return switch(await eval(io)){
+      Failure(:var failure) => Result.failure(failure),
+      Ok(:var value) => future.then((_) => Result.ok(value))
     };
   }
 
@@ -157,7 +260,7 @@ class IOApp {
         .catchError((err) => Result.failure<Option<A>>(err));
   }
 
-  Future<Result<Option<List<B>>>> _parMapM<A, B>(List<A> items, int? maxParallelism, IO<B> Function(A) f) async {
+  Future<Result<Option<List<B>>>> _traverseM<A, B>(List<A> items, int? maxParallelism, IO<B> Function(A) f) async {
     final results = List<B?>.filled(items.length, null);
     final completer = Completer<Option<List<B>>>();
     var completed = 0;
@@ -219,7 +322,7 @@ class IOApp {
   }
 
 
-  Future<Result<Option<List<B>>>> _parMap<A, B>(
+  Future<Result<Option<List<B>>>> _traverse<A, B>(
       List<A> items, int? maxParallelism, FutureOr<B> Function(A) f) async {
     final results = List<B?>.filled(items.length, null);
     final completer = Completer<Option<List<B>>>();
@@ -358,10 +461,4 @@ T _debug<T>(Type typ, String label, String msg, T value) {
   log("::> DEBUG [$typ($label)]: $msg");
   return value;
 }
-
-extension IOAppIO<A> on IO<A> {
-  Future<Option<A>> unsafeRun({int? workerCount}) async =>
-      IOApp(workerCount: workerCount).unsafeRun(this);
-}
-
 

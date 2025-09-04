@@ -1,7 +1,7 @@
-name: dio
+name: dartz
 description: Dart Monad IO Runtime
 version: 0.0.1
-repository: https://github.com/mobilemindtec/dio.dart
+repository: https://github.com/mobilemindtec/dartz.dart
 
 environment:
   sdk: ^3.4.4
