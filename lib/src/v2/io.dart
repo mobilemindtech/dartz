@@ -31,6 +31,9 @@ sealed class IO<A> {
   IO<A> retry(int retryCount, {Duration interval = const Duration(milliseconds: 10)}) =>
       IORetry(this, retryCount, interval);
 
+  IO<A> retryIf(FutureOr<bool> Function(A) f, int retryCount, {Duration interval = const Duration(milliseconds: 10)}) =>
+      IORetryIf(this, f, retryCount, interval);
+
   IO<A> timeout(Duration duration) => IOTimeout(this, duration);
 
   IO<A> sleep(Duration duration) => IOSleep(this, duration);
@@ -223,6 +226,14 @@ class IORetry<A> extends IO<A> {
   final int retryCount;
   final Duration interval;
   IORetry(this.last, this.retryCount, this.interval);
+}
+
+class IORetryIf<A> extends IO<A> {
+  final IO<A> last;
+  final int retryCount;
+  final Duration interval;
+  final FutureOr<bool> Function(A) computation;
+  IORetryIf(this.last, this.computation, this.retryCount, this.interval);
 }
 
 class IORateLimit<A> extends IO<A>{

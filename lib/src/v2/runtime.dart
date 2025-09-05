@@ -189,17 +189,17 @@ class Runtime {
       switch(await eval(pt.last)){
         Ok(:var value) when value.nonEmpty => _resultOf(pt.apply(value.get())),
         Ok _ => Result.ok(None()),
-        Failure(:var failure) => Result.failure(failure)
+        Failure failure => failure.cast()
       },
       IOFlatMap pt =>
       switch(await eval(pt.last)){
         Ok(:var value) when value.nonEmpty =>
         switch(await eval(pt.apply(value.get()))){
           Ok(:var value) => Result.ok(value.cast()),
-          Failure(:var failure) => Result.failure(failure)
+          Failure failure => failure.cast()
         },
         Ok _ => Result.ok(None()),
-        Failure(:var failure) => Result.failure(failure)
+        Failure failure => failure.cast()
       },
       IOFold pt =>
           Result.ok(pt.items.fold(pt.initialValue, pt.apply).liftOption),
@@ -208,22 +208,22 @@ class Runtime {
         Ok(:var value) when value.nonEmpty =>
         switch(await eval(pt.computation())){
           Ok(:var value) => Result.ok(value.cast()),
-          Failure(:var failure) => Result.failure(failure)
+          Failure failure => failure.cast()
         },
         Ok _ => Result.ok(None()),
-        Failure(:var failure) => Result.failure(failure)
+        Failure failure => failure.cast()
       },
       IOForeach pt =>
       switch(await eval(pt.last)){
         Ok(:var value) when value.nonEmpty => _tap(pt.apply(value.get()), Result.ok(value.cast())),
         Ok _ => Result.ok(None()),
-        Failure(:var failure) => Result.failure(failure)
+        Failure failure => failure.cast()
       },
       IOFilter pt =>
       switch(await eval(pt.last)){
         Ok(:var value) when value.nonEmpty => Result.ok(pt.apply(value.get()) ? value.cast() : None()),
         Ok _ => Result.ok(None()),
-        Failure(:var failure) => Result.failure(failure)
+        Failure failure => failure.cast()
       },
       IOFilterWith pt =>
       switch(await eval(pt.last)){
@@ -231,36 +231,36 @@ class Runtime {
         switch(await eval(pt.apply(value.get()))){
           Ok(value: Some(value: var b)) => Result.ok(b ? value.cast() : None()),
           Ok _ => Result.ok(None()),
-          Failure(:var failure) => Result.failure(failure)
+          Failure failure => failure.cast()
         },
         Ok _ => Result.ok(None()),
-        Failure(:var failure) => Result.failure(failure)
+        Failure failure => failure.cast()
       },
       IOOr pt =>
       switch(await eval(pt.last)){
         Ok(value: None()) => _resultOf(pt.value),
         Ok(:var value) => Result.ok(value.cast()),
-        Failure(:var failure) => Result.failure(failure)
+        Failure failure => failure.cast()
       },
       IOOrElse pt =>
       switch(await eval(pt.last)){
         Ok(value: None()) =>
         switch(await eval(pt.computation())){
           Ok(:var value) => Result.ok(value.cast()),
-          Failure(:var failure) => Result.failure(failure)
+          Failure failure => failure.cast()
         },
         Ok(:var value) => Result.ok(value.cast()),
-        Failure(:var failure) => Result.failure(failure)
+        Failure failure => failure.cast()
       },
       IOCatchAll pt =>
       switch(await eval(pt.last)){
         Ok(:var value) => Result.ok(value.cast()),
-        Failure(:var failure) => _tap(pt.computation(failure), Result.failure(failure))
+        Failure failure => _tap(pt.computation(failure.failure), failure.cast())
       },
       IORecover pt =>
       switch(await eval(pt.last)){
         Ok(:var value) => Result.ok(value.cast()),
-        Failure(:var failure) => _resultOf(pt.computation(failure))
+        Failure failure => _resultOf(pt.computation(failure.failure))
       },
       IORecoverWith pt =>
       switch(await eval(pt.last)){
@@ -268,36 +268,37 @@ class Runtime {
         Failure(:var failure) =>
         switch(await eval(pt.computation(failure))){
           Ok(:var value) => Result.ok(value.cast()),
-          Failure(:var failure) => Result.failure(failure)
+          Failure failure => failure.cast()
         }
       },
       IOTraverseM pt =>
       switch(await _traverseM(pt.items,  pt.maxParallelism, pt.apply)){
         Ok(:var value)  => Result.ok(value.map((x) => pt.convert(x) as A)),
-        Failure(:var failure) => Result.failure(failure)
+        Failure failure => failure.cast()
       },
       IOTraverse pt =>
       switch(await _traverse(pt.items,  pt.maxParallelism, pt.apply)){
         Ok(:var value)  => Result.ok(value.map((x) => pt.convert(x) as A)),
-        Failure(:var failure) => Result.failure(failure)
+        Failure failure => failure.cast()
       },
       IORaceM pt =>
       switch(await _raceM(pt.items, pt.ignoreErrors)){
         Ok(:var value)  => Result.ok(value.cast()),
-        Failure(:var failure) => Result.failure(failure)
+        Failure failure => failure.cast()
       },
       IORace pt =>
       switch(await _race(pt.items, pt.ignoreErrors, pt.apply)){
         Ok(:var value)  => Result.ok(value.cast()),
-        Failure(:var failure) => Result.failure(failure)
+        Failure failure => failure.cast()
       },
       IODebug pt =>
       switch(await eval(pt.last)){
         Ok(:var value)  => _debug(pt.last.runtimeType, pt.label ?? "??", "$value", Result.ok(value.cast())),
-        Failure(:var failure) =>
-            _debug(pt.last.runtimeType, pt.label ?? "??", "$failure", Result.failure(failure))
+        Failure failure =>
+            _debug(pt.last.runtimeType, pt.label ?? "??", "$failure", failure.cast())
       },
-      IORetry pt => await _retry(pt.last.cast(), pt.retryCount, pt.interval),
+      IORetry pt => await _retry(pt.last.cast(), pt.retryCount, pt.interval, null),
+      IORetryIf pt => await _retry(pt.last.cast(), pt.retryCount, pt.interval, pt.computation),
       IOSleep pt => await _sleep(pt.last.cast(), pt.duration),
       IOTimeout pt => await _timeout(pt.last.cast(), pt.duration),
       IORateLimit pt => await _rateLimit(pt.last.cast(), pt.rateInterval),
@@ -309,8 +310,7 @@ class Runtime {
           Exception ex => Result.failure(ex)
         },
         Ok(value: None()) => Result.ok(None()),
-        Failure(:var failure) =>
-            Result.failure(failure)
+        Failure failure => failure.cast()
       },
       IOFromError pt => Result.failure(pt.err)
     };
@@ -319,22 +319,29 @@ class Runtime {
   Future<Result<Option<A>>> _rateLimit<A>(IO<A> io, Duration interval) async {
     final future = Future.delayed(interval);
     return switch(await eval(io)){
-      Failure(:var failure) => Result.failure(failure),
+      Failure failure => failure.cast(),
       Ok(:var value) => future.then((_) => Result.ok(value))
     };
   }
 
-  Future<Result<Option<A>>> _retry<A>(IO<A> io, int retryCount, Duration interval) async {
+  Future<Result<Option<A>>> _retry<A>(IO<A> io, int retryCount, Duration interval, FutureOr<bool> Function(A)? computation) async {
+
+    Future<Result<Option<A>>> doRetry() async {
+      await Future.delayed(interval);
+      return _retry(io, --retryCount, interval, computation);
+    }
+
     return switch(await eval(io)){
-      Failure(:var failure) =>
-      retryCount == 1 ? Result.failure(failure) : _tap(await Future.delayed(interval), _retry(io, --retryCount, interval)),
-      Ok(:var value) => Result.ok(value)
+      Failure failure => retryCount == 1 ? failure.cast() : doRetry(),
+      Ok(value: Some(:var value)) =>
+        computation != null && await computation(value) ? doRetry() : Result.ok(Some(value)),
+      Ok(:var value) => value.liftOk
     };
   }
 
   Future<Result<Option<A>>> _sleep<A>(IO<A> io, Duration duration) async {
     return switch(await eval(io)){
-      Failure(:var failure) => Result.failure(failure),
+      Failure failure => failure.cast(),
       Ok(:var value) => _tap(await Future.delayed(duration), Result.ok(value))
     };
   }
@@ -342,7 +349,7 @@ class Runtime {
   Future<Result<Option<A>>> _timeout<A>(IO<A> io, Duration duration) async {
     return eval(io)
         .timeout(duration)
-        .catchError((err) => Result.failure<Option<A>>(err));
+        .catchError((err, stackTrace) => Result.failure<Option<A>>(err, stackTrace));
   }
 
   Future<Result<Option<List<B>>>> _traverseM<A, B>(List<A> items, int? maxParallelism, IO<B> Function(A) f) async {
@@ -372,9 +379,9 @@ class Runtime {
             if(completer.isCompleted) return;
             completer.complete(None());
             break;
-          case Failure(:var err):
+          case Failure failure:
             if(completer.isCompleted) return;
-            completer.completeError(err);
+            completer.completeError(failure.failure, failure.stackTrace);
             break;
         }
       });
@@ -399,10 +406,10 @@ class Runtime {
     try{
       final ok = (await completer.future).liftOk;
       return ok;
-    } on Exception catch (err, _){
-      return Result.failure(err);
-    } on Object catch (err, _) {
-      return Result.failure(Exception("$err"));
+    } on Exception catch (err, stackTrace){
+      return Result.failure(err, stackTrace);
+    } on Object catch (err, stackTrace) {
+      return Result.failure(Exception("$err"), stackTrace);
     }
   }
 
@@ -426,9 +433,9 @@ class Runtime {
                 .cast<B>()
                 .liftOption);
           }
-        } catch (err) {
+        } catch (err, stackTrace) {
           if (completer.isCompleted) return;
-          completer.completeError(err);
+          completer.completeError(err, stackTrace);
         }
       });
     }
@@ -452,10 +459,10 @@ class Runtime {
     try{
       final ok = (await completer.future).liftOk;
       return ok;
-    } on Exception catch (err, _){
-      return Result.failure(err);
-    } on Object catch (err, _) {
-      return Result.failure(Exception("$err"));
+    } on Exception catch (err, stackTrace){
+      return Result.failure(err, stackTrace);
+    } on Object catch (err, stackTrace) {
+      return Result.failure(Exception("$err"), stackTrace);
     }
   }
 
@@ -476,10 +483,10 @@ class Runtime {
             break;
           case Ok _: // pass
             break;
-          case Failure(:var failure):
+          case Failure failure:
             if(!ignoreErrors){
               if(completer.isCompleted) return;
-              completer.completeError(failure);
+              completer.completeError(failure.failure, failure.stackTrace);
             }
             break;
         }
@@ -488,10 +495,10 @@ class Runtime {
 
     try{
       return (await completer.future).liftOk;
-    } on Exception catch (err, _){
-      return Result.failure(err);
-    } catch(err){
-      return Result.failure(Exception("$err"));
+    } on Exception catch (err, stackTrace){
+      return Result.failure(err, stackTrace);
+    } catch(err, stackTrace){
+      return Result.failure(Exception("$err"), stackTrace);
     }
   }
 
@@ -509,15 +516,15 @@ class Runtime {
           final result = await f(n);
           if(completer.isCompleted) return;
           completer.complete(Option.of(result));
-        } on Exception catch(err, _) {
+        } on Exception catch(err, stackTrace) {
           if(!ignoreErrors){
             if(completer.isCompleted) return;
-            completer.completeError(err);
+            completer.completeError(err, stackTrace);
           }
-        } catch(err){
+        } catch(err, stackTrace){
           if(!ignoreErrors){
             if(completer.isCompleted) return;
-            completer.completeError(Exception("$err"));
+            completer.completeError(Exception("$err"), stackTrace);
           }
         }
 
@@ -526,10 +533,10 @@ class Runtime {
 
     try{
       return (await completer.future).liftOk;
-    } on Exception catch (err, _){
-      return Result.failure(err);
-    } catch(err){
-      return Result.failure(Exception("$err"));
+    } on Exception catch (err, stackTrace){
+      return Result.failure(err, stackTrace);
+    } catch(err, stackTrace){
+      return Result.failure(Exception("$err"), stackTrace);
     }
   }
 
