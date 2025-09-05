@@ -12,17 +12,7 @@ sealed  class Result<T> {
     return Failure(e);
   }
 
-  static Result<T> from<T>(T Function() f) {
-    try {
-      return Result.ok(f());
-    } on Exception catch (err, _) {
-      return Result.failure(err);
-    } on Object catch (err, _) {
-      return Result.failure(Exception("$err"));
-    }
-  }
-
-  static Future<Result<T>> fromAsync<T>(FutureOr<T> Function() f) async {
+  static Future<Result<T>> of<T>(FutureOr<T> Function() f) async {
     try {
       return Result.ok(await f());
     } on Exception catch (err, _) {
