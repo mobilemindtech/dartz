@@ -312,6 +312,13 @@ class Runtime {
         Ok(value: None()) => Result.ok(None()),
         Failure failure => failure.cast()
       },
+      IOFailIf pt =>
+      switch(await eval(pt.last)){
+        Ok(value: Some(:var value))  =>
+            pt.computation(value) ? Result.failure(pt.exception) : Result.of(Some(value)),
+        Ok(value: None()) => Result.ok(None()),
+        Failure failure => failure.cast()
+      },
       IOFromError pt => Result.failure(pt.err)
     };
   }

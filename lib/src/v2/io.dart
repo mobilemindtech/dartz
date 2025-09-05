@@ -28,6 +28,9 @@ sealed class IO<A> {
 
   IO<A> failWith(FutureOr<Exception?> Function(A) f) => IOFailWith(this, f);
 
+  IO<A> failIf(bool Function(A) f, {Exception? exception, String? message}) =>
+      IOFailIf(this, f, exception ?? Exception(message ?? "IOApp error"));
+
   IO<A> retry(int retryCount, {Duration interval = const Duration(milliseconds: 10)}) =>
       IORetry(this, retryCount, interval);
 
@@ -246,6 +249,13 @@ class IOFailWith<A> extends IO<A>{
   final IO<A> last;
   final FutureOr<Exception?> Function(A) computation;
   IOFailWith(this.last, this.computation);
+}
+
+class IOFailIf<A> extends IO<A>{
+  final IO<A> last;
+  final bool Function(A) computation;
+  final Exception exception;
+  IOFailIf(this.last, this.computation, this.exception);
 }
 
 class IOFromError<A> extends IO<A>{
