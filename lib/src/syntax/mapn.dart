@@ -1,4 +1,4 @@
-import 'package:dartz/src/v2/io.dart';
+import 'package:dartz/src/io.dart';
 
 // MapN2
 extension MapN2<A, B, C> on (IO<A>, IO<B>) {

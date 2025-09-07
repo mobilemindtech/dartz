@@ -8,9 +8,12 @@ export 'src/result.dart';
 export 'src/validation.dart';
 export 'src/either.dart';
 export 'src/app_exception.dart';
-export 'src/v2/io.dart';
-export 'src/v2/io_app.dart';
-export 'src/v2/sintax/sintax.dart';
-export 'src/v2/sintax/mapn.dart';
+export 'src/io.dart';
+export 'src/resource.dart';
+export 'src/io_app.dart';
+export 'src/syntax/syntax.dart';
+export 'src/syntax/mapn.dart';
+export 'src/env_io.dart';
+export 'src/env_state_io.dart';
 
 // TODO: Export any libraries intended for clients of this package.

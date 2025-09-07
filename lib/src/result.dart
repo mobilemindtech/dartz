@@ -12,6 +12,15 @@ sealed  class Result<T> {
     return Failure(e, stackTrace);
   }
 
+  static Result<T> sync<T>(T Function() f) {
+    try {
+      return Result.ok(f());
+    } on Exception catch (err, stackTrace) {
+    return Result.failure(err, stackTrace);
+    } on Object catch (err, stackTrace) {
+    return Result.failure(Exception("$err"), stackTrace);
+    }
+  }
   static Future<Result<T>> of<T>(FutureOr<T> Function() f) async {
     try {
       return Result.ok(await f());
@@ -31,6 +40,34 @@ sealed  class Result<T> {
     return this;
   }
 
+  T get value => switch(this){
+    Ok(:var value) => value,
+    Failure(:var failure) => throw failure
+  };
+
+  T get err => switch(this){
+    Ok(:var value) => value,
+    Failure(:var failure) => throw failure
+  };
+
+  Result<A> map<A>(A Function(T) f) =>
+    switch(this) {
+      Failure(:var failure) => Result.failure(failure),
+      Ok(:var value) => Result.sync(() => f(value))
+    };
+
+  Result<A> flatMap<A>(Result<A> Function(T) f) =>
+      switch(this) {
+        Failure(:var failure) => Result.failure(failure),
+        Ok(:var value) => f(value)
+      };
+
+  FutureOr<Result<A>> flatMapAsync<A>(Future<Result<A>> Function(T) f) =>
+      switch(this) {
+        Failure(:var failure) => Result.failure(failure),
+        Ok(:var value) => f(value)
+      };
+
   Result<T> resolve(Function(T) fOk, Function(Exception, StackTrace?) fFailure, [Function()? fAlways]){
     switch(this){
       case Ok(:var value): fOk(value);
@@ -40,6 +77,10 @@ sealed  class Result<T> {
       fAlways();
     }
     return this;
+  }
+
+  Result<A> cast<A>() {
+    return this as Result<A>;
   }
 }
 
@@ -59,23 +100,18 @@ class Ok<T> extends Result<T> {
 }
 
 class Failure<T> extends Result<T> {
-  final Exception err;
+  final Exception failure;
   final StackTrace? stackTrace;
 
-  Failure(this.err, [this.stackTrace]);
+  Failure(this.failure, [this.stackTrace]);
 
-  Exception get failure => err;
 
   factory Failure.msg(String msg) => Failure(Exception(msg));
   factory Failure.exn(Exception ex, [StackTrace? stackTrace]) =>
       Failure(ex, stackTrace);
 
   Result<A> convert<A>() {
-    return Result.failure(err, stackTrace);
-  }
-
-  Result<A> cast<A>() {
-    return this as Result<A>;
+    return Result.failure(failure, stackTrace);
   }
 
   @override

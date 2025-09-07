@@ -1,5 +1,9 @@
 import 'dart:async';
 
+final class Nothing {
+  Nothing();
+}
+
 sealed class IO<A> {
 
   IO<B> map<B>(B Function(A) f) => IOMap(this, f);
@@ -45,7 +49,17 @@ sealed class IO<A> {
 
   IO<B> cast<B>() => this as IO<B>;
 
+  IO<A> ensure(FutureOr Function() f)  => IOEnsure(this, f);
+
+  IO<A> touch(FutureOr<void> Function(A) f) =>
+      IOTouch(this, (A x) async { await f(x); return Nothing(); });
+
   static IO<A> fromError<A>(Exception err) => IOFromError(err);
+
+  static IO<void> effect(FutureOr<void> Function() f) =>
+      IOEffect(() {f(); return Nothing();});
+
+  static IO<void> println(String msg) => effect(() => print(msg));
 
   static IO<List<B>> traverseM<A, B>(List<A> items, IO<B> Function(A) f,
       {int? maxParallelism}) => IOTraverseM(items, maxParallelism, f);
@@ -263,3 +277,31 @@ class IOFromError<A> extends IO<A>{
   IOFromError(this.err);
 }
 
+class IOEnsure<A> extends IO<A> {
+  final IO<A> last;
+  final FutureOr Function() computation;
+  IOEnsure(this.last, this.computation);
+}
+
+class IOEffect extends IO<Nothing> {
+  final FutureOr<Nothing> Function() computation;
+  IOEffect(this.computation);
+}
+
+class IOTouch<A> extends IO<A> {
+  final IO<A> last;
+  final FutureOr<Nothing> Function(A) computation;
+  IOTouch(this.last, this.computation);
+
+  FutureOr<Nothing> apply(A value) => computation(value);
+}
+
+T identity<T>(T value) => value;
+
+extension Lift<T> on T {
+  IO<T> get lift => IO.pure(this);
+}
+
+extension LiftFuture<T> on Future<T> {
+  IO<T> get lift => IO.attempt(() => this);
+}

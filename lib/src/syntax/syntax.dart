@@ -1,7 +1,8 @@
 
-import 'package:dartz/src/v2/io.dart';
-import 'package:dartz/src/v2/io_app.dart';
+import 'package:dartz/src/io.dart';
+import 'package:dartz/src/io_app.dart';
 import 'package:dartz/src/option.dart';
+import 'package:dartz/src/result.dart';
 
 extension IOFlatMapSintax<A, B> on IO<A> {
   IO<B> operator >>(B Function(A) f) => map(f);
@@ -23,10 +24,17 @@ extension ListTraverse<A> on List<A> {
 extension IOAppIO<A> on IO<A> {
   Future<Option<A>> unsafeRun({int? workerCount}) async =>
       IOApp(workerCount: workerCount).unsafeRun(this);
+
+  Future<Result<Option<A>>> safeRun({int? workerCount}) async =>
+      IOApp(workerCount: workerCount).safeRun(this);
 }
 
 extension ListIO on List<IO> {
   Future unsafeRun({int? workerCount, bool continueOnError = true}) =>
     IOApp(workerCount: workerCount)
         .unsafeRunMany(this, continueOnError: continueOnError);
+}
+
+extension AnyExn<T> on T {
+  Exception get exn => T is Exception ? this as Exception : Exception("$this");
 }

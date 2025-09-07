@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 
 sealed class Option<T> {
   static Option<A> of<A>(A? value) {
@@ -31,6 +30,8 @@ sealed class Option<T> {
   bool get nonEmpty => switch (this) { Some() => true, None() => false };
 
   bool get empty => !nonEmpty;
+
+  T get value => get();
 
   Option<A> map<A>(A Function(T) f) {
     return switch (this) { Some(value: var v) => of(f(v)), None() => None() };
@@ -64,6 +65,11 @@ sealed class Option<T> {
     if (nonEmpty) {
       f((this as Some<T>).get());
     }
+    return this;
+  }
+
+  Option<T> throwOnEmpty({String message = "value can't be empty"}) {
+    if(empty) throw Exception(message);
     return this;
   }
 }

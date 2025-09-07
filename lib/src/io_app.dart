@@ -1,10 +1,10 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'package:dartz/dartz.dart';
 import 'package:dartz/src/result.dart';
 import 'package:dartz/src/option.dart';
-import 'package:dartz/src/v2/runtime.dart';
-import 'package:dartz/src/v2/io.dart';
+import 'package:dartz/src/runtime.dart';
 
 
 class IOApp {
@@ -19,14 +19,24 @@ class IOApp {
       switch(await _runtime.eval(io)) {
         case Ok(value: var value):
           return value;
-        case Failure(failure: var failure):
-          return throw failure;
+        case Failure(failure: var failure, stackTrace: var stackTrace):
+          return Future.error(failure, stackTrace);
       }
     } catch(err, stacktrace){
       print("IOApp error $err:\n $stacktrace");
-      return throw err;
+      return Future.error(err, stacktrace);
     }
   }
+
+  Future<Result<Option<A>>> safeRun<A>(IO<A> io) async {
+    try {
+      return await _runtime.eval(io);
+    } on Exception catch(err, stackTrace){
+      print("IOApp error $err:\n $stackTrace");
+      return Result.failure(err.exn, stackTrace);
+    }
+  }
+  
 
   Future<Option<List>> unsafeRunMany(List<IO> ios, {bool continueOnError = true, int? maxParallelism}) async {
     return _runtime.evalMany(ios, continueOnError: continueOnError, maxParallelism: maxParallelism);

@@ -189,41 +189,45 @@ class Runtime {
       switch(await eval(pt.last)){
         Ok(:var value) when value.nonEmpty => _resultOf(pt.apply(value.get())),
         Ok _ => Result.ok(None()),
-        Failure failure => failure.cast()
+        Failure(:var failure) => Result.failure(failure)
       },
       IOFlatMap pt =>
       switch(await eval(pt.last)){
         Ok(:var value) when value.nonEmpty =>
         switch(await eval(pt.apply(value.get()))){
           Ok(:var value) => Result.ok(value.cast()),
-          Failure failure => failure.cast()
+          Failure(:var failure) => Result.failure(failure)
         },
         Ok _ => Result.ok(None()),
-        Failure failure => failure.cast()
+        Failure(:var failure) => Result.failure(failure)
       },
       IOFold pt =>
-          Result.ok(pt.items.fold(pt.initialValue, pt.apply).liftOption),
+          Result.ok(pt.items
+              .fold(pt.initialValue, pt.apply)
+              .liftOption),
       IOAndThan pt =>
       switch(await eval(pt.last)){
         Ok(:var value) when value.nonEmpty =>
         switch(await eval(pt.computation())){
           Ok(:var value) => Result.ok(value.cast()),
-          Failure failure => failure.cast()
+          Failure(:var failure) => Result.failure(failure)
         },
         Ok _ => Result.ok(None()),
-        Failure failure => failure.cast()
+        Failure(:var failure) => Result.failure(failure)
       },
       IOForeach pt =>
       switch(await eval(pt.last)){
-        Ok(:var value) when value.nonEmpty => _tap(pt.apply(value.get()), Result.ok(value.cast())),
+        Ok(:var value) when value.nonEmpty =>
+            _tap(pt.apply(value.get()), Result.ok(value.cast())),
         Ok _ => Result.ok(None()),
-        Failure failure => failure.cast()
+        Failure(:var failure) => Result.failure(failure)
       },
       IOFilter pt =>
       switch(await eval(pt.last)){
-        Ok(:var value) when value.nonEmpty => Result.ok(pt.apply(value.get()) ? value.cast() : None()),
+        Ok(:var value) when value.nonEmpty =>
+            Result.ok(pt.apply(value.get()) ? value.cast() : None()),
         Ok _ => Result.ok(None()),
-        Failure failure => failure.cast()
+        Failure(:var failure) => Result.failure(failure)
       },
       IOFilterWith pt =>
       switch(await eval(pt.last)){
@@ -231,26 +235,26 @@ class Runtime {
         switch(await eval(pt.apply(value.get()))){
           Ok(value: Some(value: var b)) => Result.ok(b ? value.cast() : None()),
           Ok _ => Result.ok(None()),
-          Failure failure => failure.cast()
+          Failure(:var failure) => Result.failure(failure)
         },
         Ok _ => Result.ok(None()),
-        Failure failure => failure.cast()
+        Failure(:var failure) => Result.failure(failure)
       },
       IOOr pt =>
       switch(await eval(pt.last)){
         Ok(value: None()) => _resultOf(pt.value),
         Ok(:var value) => Result.ok(value.cast()),
-        Failure failure => failure.cast()
+        Failure(:var failure) => Result.failure(failure)
       },
       IOOrElse pt =>
       switch(await eval(pt.last)){
         Ok(value: None()) =>
         switch(await eval(pt.computation())){
           Ok(:var value) => Result.ok(value.cast()),
-          Failure failure => failure.cast()
+          Failure(:var failure) => Result.failure(failure)
         },
         Ok(:var value) => Result.ok(value.cast()),
-        Failure failure => failure.cast()
+        Failure(:var failure) => Result.failure(failure)
       },
       IOCatchAll pt =>
       switch(await eval(pt.last)){
@@ -268,65 +272,93 @@ class Runtime {
         Failure(:var failure) =>
         switch(await eval(pt.computation(failure))){
           Ok(:var value) => Result.ok(value.cast()),
-          Failure failure => failure.cast()
+          Failure(:var failure) => Result.failure(failure)
         }
       },
       IOTraverseM pt =>
-      switch(await _traverseM(pt.items,  pt.maxParallelism, pt.apply)){
-        Ok(:var value)  => Result.ok(value.map((x) => pt.convert(x) as A)),
-        Failure failure => failure.cast()
+      switch(await _traverseM(pt.items, pt.maxParallelism, pt.apply)){
+        Ok(:var value) => Result.ok(value.map((x) => pt.convert(x) as A)),
+        Failure(:var failure) => Result.failure(failure)
       },
       IOTraverse pt =>
-      switch(await _traverse(pt.items,  pt.maxParallelism, pt.apply)){
-        Ok(:var value)  => Result.ok(value.map((x) => pt.convert(x) as A)),
-        Failure failure => failure.cast()
+      switch(await _traverse(pt.items, pt.maxParallelism, pt.apply)){
+        Ok(:var value) => Result.ok(value.map((x) => pt.convert(x) as A)),
+        Failure(:var failure) => Result.failure(failure)
       },
       IORaceM pt =>
       switch(await _raceM(pt.items, pt.ignoreErrors)){
-        Ok(:var value)  => Result.ok(value.cast()),
-        Failure failure => failure.cast()
+        Ok(:var value) => Result.ok(value.cast()),
+        Failure(:var failure) => Result.failure(failure)
       },
       IORace pt =>
       switch(await _race(pt.items, pt.ignoreErrors, pt.apply)){
-        Ok(:var value)  => Result.ok(value.cast()),
-        Failure failure => failure.cast()
+        Ok(:var value) => Result.ok(value.cast()),
+        Failure(:var failure) => Result.failure(failure)
       },
       IODebug pt =>
       switch(await eval(pt.last)){
-        Ok(:var value)  => _debug(pt.last.runtimeType, pt.label ?? "??", "$value", Result.ok(value.cast())),
+        Ok(:var value) =>
+            _debug(
+            pt.last.runtimeType, pt.label ?? "??", "$value",
+            Result.ok(value.cast())),
         Failure failure =>
-            _debug(pt.last.runtimeType, pt.label ?? "??", "$failure", failure.cast())
+            _debug(pt.last.runtimeType, pt.label ?? "??", "$failure",
+                failure.cast())
       },
-      IORetry pt => await _retry(pt.last.cast(), pt.retryCount, pt.interval, null),
-      IORetryIf pt => await _retry(pt.last.cast(), pt.retryCount, pt.interval, pt.computation),
+      IORetry pt =>
+      await _retry(pt.last.cast(), pt.retryCount, pt.interval, null),
+      IORetryIf pt =>
+      await _retry(pt.last.cast(), pt.retryCount, pt.interval, pt.computation),
       IOSleep pt => await _sleep(pt.last.cast(), pt.duration),
       IOTimeout pt => await _timeout(pt.last.cast(), pt.duration),
       IORateLimit pt => await _rateLimit(pt.last.cast(), pt.rateInterval),
       IOFailWith pt =>
       switch(await eval(pt.last)){
-        Ok(value: Some(:var value))  =>
+        Ok(value: Some(:var value)) =>
         switch (await pt.computation(value)) {
-          null => Result.ok(value.cast()),
-          Exception ex => Result.failure(ex)
+          Exception ex => Result.failure(ex),
+          _ => Result.ok(value.cast())
         },
-        Ok(value: None()) => Result.ok(None()),
-        Failure failure => failure.cast()
+        Ok ok => ok.cast(),
+        Failure(:var failure) => Result.failure(failure)
       },
       IOFailIf pt =>
-      switch(await eval(pt.last)){
+          eval(pt.last).then((r) =>
+              r.flatMap((r) => r.map(pt.computation)
+                  .filter(identity)
+                  .map((_) => Result.failure(pt.exception))
+                  .or(Result.ok(r))
+                  .cast()
+          )),
+
+    /*switch(await eval(pt.last)){
         Ok(value: Some(:var value))  =>
-            pt.computation(value) ? Result.failure(pt.exception) : Result.of(Some(value)),
+            pt.computation(value) ? Result.failure(pt.exception) : Result.ok(Some(value)),
         Ok(value: None()) => Result.ok(None()),
-        Failure failure => failure.cast()
-      },
-      IOFromError pt => Result.failure(pt.err)
+        Failure(:var failure) => Result.failure(failure      },*/
+      IOFromError pt => Result.failure(pt.err),
+      IOEnsure pt =>
+        _tap0(await eval(pt.last.cast()), await pt.computation()),
+      IOEffect pt => _tryExec(() async => (await pt.computation()) as A),
+      IOTouch pt =>
+        (await eval(pt.last.cast())).flatMapAsync((opt) {
+
+          return Result.of(() async {
+            if(opt.nonEmpty) {
+              await pt.apply(opt.value);
+            }
+            return opt.cast();
+          });
+
+
+        })
     };
   }
 
   Future<Result<Option<A>>> _rateLimit<A>(IO<A> io, Duration interval) async {
     final future = Future.delayed(interval);
     return switch(await eval(io)){
-      Failure failure => failure.cast(),
+      Failure(:var failure) => Result.failure(failure),
       Ok(:var value) => future.then((_) => Result.ok(value))
     };
   }
@@ -348,7 +380,7 @@ class Runtime {
 
   Future<Result<Option<A>>> _sleep<A>(IO<A> io, Duration duration) async {
     return switch(await eval(io)){
-      Failure failure => failure.cast(),
+      Failure(:var failure) => Result.failure(failure),
       Ok(:var value) => _tap(await Future.delayed(duration), Result.ok(value))
     };
   }
@@ -552,6 +584,7 @@ class Runtime {
   }
 
   T _tap<T>(dynamic unused, T result) => result;
+  T _tap0<T>(T result, dynamic unused) => result;
 
   T _debug<T>(Type typ, String label, String msg, T value) {
     print("::> DEBUG [$typ($label)]: $msg");
