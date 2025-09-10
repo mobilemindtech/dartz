@@ -4,6 +4,10 @@ final class Nothing {
   Nothing();
 }
 
+final class Unit {
+  Unit();
+}
+
 sealed class IO<A> {
 
   IO<B> map<B>(B Function(A) f) => IOMap(this, f);
@@ -54,12 +58,15 @@ sealed class IO<A> {
   IO<A> touch(FutureOr<void> Function(A) f) =>
       IOTouch(this, (A x) async { await f(x); return Nothing(); });
 
+  IO<Unit> get mapToUnit => IOToUnit(this);
+
   static IO<A> fromError<A>(Exception err) => IOFromError(err);
 
   static IO<void> effect(FutureOr<void> Function() f) =>
       IOEffect(() {f(); return Nothing();});
 
   static IO<void> println(String msg) => effect(() => print(msg));
+
 
   static IO<List<B>> traverseM<A, B>(List<A> items, IO<B> Function(A) f,
       {int? maxParallelism}) => IOTraverseM(items, maxParallelism, f);
@@ -294,6 +301,11 @@ class IOTouch<A> extends IO<A> {
   IOTouch(this.last, this.computation);
 
   FutureOr<Nothing> apply(A value) => computation(value);
+}
+
+class IOToUnit<A> extends IO<Unit> {
+  final IO<A> last;
+  IOToUnit(this.last);
 }
 
 T identity<T>(T value) => value;

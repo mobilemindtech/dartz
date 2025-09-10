@@ -349,9 +349,9 @@ class Runtime {
             }
             return opt.cast();
           });
-
-
-        })
+        }),
+      IOToUnit pt =>
+        (await eval(pt.last)).map((_) => Option.of(Unit()).cast())
     };
   }
 
