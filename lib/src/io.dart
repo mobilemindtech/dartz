@@ -270,6 +270,8 @@ class IOFailWith<A> extends IO<A>{
   final IO<A> last;
   final FutureOr<Exception?> Function(A) computation;
   IOFailWith(this.last, this.computation);
+
+  FutureOr<Exception?> apply(A value) => computation(value);
 }
 
 class IOFailIf<A> extends IO<A>{
@@ -277,6 +279,7 @@ class IOFailIf<A> extends IO<A>{
   final bool Function(A) computation;
   final Exception exception;
   IOFailIf(this.last, this.computation, this.exception);
+  bool apply(A value) => computation(value);
 }
 
 class IOFromError<A> extends IO<A>{

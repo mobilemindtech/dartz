@@ -45,9 +45,9 @@ sealed  class Result<T> {
     Failure(:var failure) => throw failure
   };
 
-  T get err => switch(this){
-    Ok(:var value) => value,
-    Failure(:var failure) => throw failure
+  Exception get err => switch(this){
+    Ok(:var value) => throw Exception("Ok has not err value"),
+    Failure(:var failure) => failure
   };
 
   Result<A> map<A>(A Function(T) f) =>

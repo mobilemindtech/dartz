@@ -259,7 +259,7 @@ class Runtime {
       IOCatchAll pt =>
       switch(await eval(pt.last)){
         Ok(:var value) => Result.ok(value.cast()),
-        Failure failure => _tap(pt.computation(failure.failure), failure.cast())
+        Failure failure => _tap(pt.computation(failure.failure), Result.failure<Option<A>>(failure.failure))
       },
       IORecover pt =>
       switch(await eval(pt.last)){
@@ -315,20 +315,20 @@ class Runtime {
       IOFailWith pt =>
       switch(await eval(pt.last)){
         Ok(value: Some(:var value)) =>
-        switch (await pt.computation(value)) {
+        switch (await pt.apply(value)) {
           Exception ex => Result.failure(ex),
-          _ => Result.ok(value.cast())
+          _ => Result.ok( Option.of(value) ).cast()
         },
         Ok ok => ok.cast(),
         Failure(:var failure) => Result.failure(failure)
       },
       IOFailIf pt =>
           eval(pt.last).then((r) =>
-              r.flatMap((r) => r.map(pt.computation)
-                  .filter(identity)
-                  .map((_) => Result.failure(pt.exception))
-                  .or(Result.ok(r))
-                  .cast()
+              r.flatMap((opt) =>
+                  opt.map(pt.apply)
+                      .filter(identity)
+                      .map((_) => Result.failure<Option<A>>(pt.exception))
+                      .or(Result.ok<Option<A>>(opt.map((x) => x as A)))
           )),
 
     /*switch(await eval(pt.last)){
