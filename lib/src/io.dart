@@ -16,7 +16,7 @@ sealed class IO<A> {
 
   IO<B> andThan<B>(IO<B> Function() f) => IOAndThan(this, f);
 
-  IO<A> foreach(Function(A) f) => IOForeach(this, f);
+  IO<A> foreach(void Function(A) f) => IOForeach(this, f);
 
   IO<A> filter(bool Function(A) f) => IOFilter(this, f);
 
