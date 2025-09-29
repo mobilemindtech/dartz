@@ -205,7 +205,7 @@ class Runtime {
           Result.ok(pt.items
               .fold(pt.initialValue, pt.apply)
               .liftOption),
-      IOAndThan pt =>
+      IOAndThen pt =>
       switch(await eval(pt.last)){
         Ok(:var value) when value.nonEmpty =>
         switch(await eval(pt.computation())){
@@ -351,7 +351,11 @@ class Runtime {
           });
         }),
       IOToUnit pt =>
-        (await eval(pt.last)).map((_) => Option.of(Unit()).cast())
+        switch(await eval(pt.last)){
+          Ok(value: Some(value: _)) =>  Result.ok(Option.of(Unit()).cast()),
+          Ok(value: None()) => Result.ok(None<A>()),
+          Failure failure => Result.failure(failure.failure, failure.stackTrace)
+        }
     };
   }
 

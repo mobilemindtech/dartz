@@ -13,6 +13,7 @@ export 'src/resource.dart';
 export 'src/io_app.dart';
 export 'src/syntax/syntax.dart';
 export 'src/syntax/mapn.dart';
+export 'src/syntax/flatmapn.dart';
 export 'src/env_io.dart';
 export 'src/env_state_io.dart';
 

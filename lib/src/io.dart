@@ -14,7 +14,7 @@ sealed class IO<A> {
 
   IO<B> flatMap<B>(IO<B> Function(A) f) => IOFlatMap(this, f);
 
-  IO<B> andThan<B>(IO<B> Function() f) => IOAndThan(this, f);
+  IO<B> andThen<B>(IO<B> Function() f) => IOAndThen(this, f);
 
   IO<A> foreach(void Function(A) f) => IOForeach(this, f);
 
@@ -167,10 +167,10 @@ class IORace<A, B> extends IO<B> {
   FutureOr<B> apply(A value) => computation(value);
 }
 
-class IOAndThan<A, B> extends IO<B> {
+class IOAndThen<A, B> extends IO<B> {
   final IO<A> last;
   final IO<B> Function() computation;
-  IOAndThan(this.last, this.computation);
+  IOAndThen(this.last, this.computation);
 }
 
 class IOForeach<A> extends IO<A> {

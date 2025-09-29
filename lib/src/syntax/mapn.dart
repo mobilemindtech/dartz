@@ -1,8 +1,8 @@
 import 'package:dartz/src/io.dart';
 
 // MapN2
-extension MapN2<A, B, C> on (IO<A>, IO<B>) {
-  IO<C> mapN(C Function(A, B) f) {
+extension MapN2<A, B> on (IO<A>, IO<B>) {
+  IO<C> mapN<C>(C Function(A, B) f) {
     var (ioa, iob) = this;
     return ioa.flatMap((a) => iob.map((b) => f(a, b)));
   }
@@ -21,8 +21,8 @@ extension MapN3<A, B, C, D> on (IO<A>, IO<B>, IO<C>) {
 }
 
 // MapN4
-extension MapN4<A, B, C, D, E> on (IO<A>, IO<B>, IO<C>, IO<D>) {
-  IO<E> mapN(E Function(A, B, C, D) f) {
+extension MapN4<A, B, C, D> on (IO<A>, IO<B>, IO<C>, IO<D>) {
+  IO<E> mapN<E>(E Function(A, B, C, D) f) {
     var (ioa, iob, ioc, iod) = this;
     return ioa.flatMap(
             (a) => iob.flatMap(
@@ -35,8 +35,8 @@ extension MapN4<A, B, C, D, E> on (IO<A>, IO<B>, IO<C>, IO<D>) {
 }
 
 // MapN5
-extension MapN5<A, B, C, D, E, F> on (IO<A>, IO<B>, IO<C>, IO<D>, IO<E>) {
-  IO<F> mapN(F Function(A, B, C, D, E) f) {
+extension MapN5<A, B, C, D, E> on (IO<A>, IO<B>, IO<C>, IO<D>, IO<E>) {
+  IO<F> mapN<F>(F Function(A, B, C, D, E) f) {
     var (ioa, iob, ioc, iod, ioe) = this;
     return ioa.flatMap(
             (a) => iob.flatMap(
@@ -51,8 +51,8 @@ extension MapN5<A, B, C, D, E, F> on (IO<A>, IO<B>, IO<C>, IO<D>, IO<E>) {
 }
 
 // MapN6
-extension MapN6<A, B, C, D, E, F, G> on (IO<A>, IO<B>, IO<C>, IO<D>, IO<E>, IO<F>) {
-  IO<G> mapN(G Function(A, B, C, D, E, F) f) {
+extension MapN6<A, B, C, D, E, F> on (IO<A>, IO<B>, IO<C>, IO<D>, IO<E>, IO<F>) {
+  IO<G> mapN<G>(G Function(A, B, C, D, E, F) f) {
     var (ioa, iob, ioc, iod, ioe, iof) = this;
     return ioa.flatMap(
             (a) => iob.flatMap(
@@ -69,9 +69,9 @@ extension MapN6<A, B, C, D, E, F, G> on (IO<A>, IO<B>, IO<C>, IO<D>, IO<E>, IO<F
 }
 
 // MapN7
-extension MapN7<A, B, C, D, E, F, G, H>
+extension MapN7<A, B, C, D, E, F, G>
 on (IO<A>, IO<B>, IO<C>, IO<D>, IO<E>, IO<F>, IO<G>) {
-  IO<H> mapN(H Function(A, B, C, D, E, F, G) f) {
+  IO<H> mapN<H>(H Function(A, B, C, D, E, F, G) f) {
     var (ioa, iob, ioc, iod, ioe, iof, iog) = this;
     return ioa.flatMap(
             (a) => iob.flatMap(
@@ -90,9 +90,9 @@ on (IO<A>, IO<B>, IO<C>, IO<D>, IO<E>, IO<F>, IO<G>) {
 }
 
 // MapN8
-extension MapN8<A, B, C, D, E, F, G, H, I>
+extension MapN8<A, B, C, D, E, F, G, H>
 on (IO<A>, IO<B>, IO<C>, IO<D>, IO<E>, IO<F>, IO<G>, IO<H>) {
-  IO<I> mapN(I Function(A, B, C, D, E, F, G, H) f) {
+  IO<I> mapN<I>(I Function(A, B, C, D, E, F, G, H) f) {
     var (ioa, iob, ioc, iod, ioe, iof, iog, ioh) = this;
     return ioa.flatMap(
             (a) => iob.flatMap(
@@ -113,9 +113,9 @@ on (IO<A>, IO<B>, IO<C>, IO<D>, IO<E>, IO<F>, IO<G>, IO<H>) {
 }
 
 // MapN9
-extension MapN9<A, B, C, D, E, F, G, H, I, J>
+extension MapN9<A, B, C, D, E, F, G, H, I>
 on (IO<A>, IO<B>, IO<C>, IO<D>, IO<E>, IO<F>, IO<G>, IO<H>, IO<I>) {
-  IO<J> mapN(J Function(A, B, C, D, E, F, G, H, I) f) {
+  IO<J> mapN<J>(J Function(A, B, C, D, E, F, G, H, I) f) {
     var (ioa, iob, ioc, iod, ioe, iof, iog, ioh, ioi) = this;
     return ioa.flatMap(
             (a) => iob.flatMap(
@@ -138,9 +138,9 @@ on (IO<A>, IO<B>, IO<C>, IO<D>, IO<E>, IO<F>, IO<G>, IO<H>, IO<I>) {
 }
 
 // MapN10
-extension MapN10<A, B, C, D, E, F, G, H, I, J, K>
+extension MapN10<A, B, C, D, E, F, G, H, I, J>
 on (IO<A>, IO<B>, IO<C>, IO<D>, IO<E>, IO<F>, IO<G>, IO<H>, IO<I>, IO<J>) {
-  IO<K> mapN(K Function(A, B, C, D, E, F, G, H, I, J) f) {
+  IO<K> mapN<K>(K Function(A, B, C, D, E, F, G, H, I, J) f) {
     var (ioa, iob, ioc, iod, ioe, iof, iog, ioh, ioi, ioj) = this;
     return ioa.flatMap(
             (a) => iob.flatMap(

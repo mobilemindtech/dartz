@@ -296,6 +296,7 @@ void main() {
       );
 
       var io = program.provide(env);
+
       print("IO = $io");
       var result = await io.safeRun();
       expect(true, result.isOk);
