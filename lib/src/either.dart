@@ -5,6 +5,10 @@ sealed class Either<A, B> {
 
   bool get isRight => !isLeft;
 
+  Left<A, B> get toLeft => this as Left<A, B>;
+
+  Right<A, B> get toRigth => this as Right<A, B>;
+
   static Either<A, B> left<A, B>(A value) => Left(value);
 
   static Either<A, B> right<A, B>(B value) => Right(value);

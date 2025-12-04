@@ -16,6 +16,8 @@ sealed class IO<A> {
 
   IO<B> andThen<B>(IO<B> Function() f) => IOAndThen(this, f);
 
+  IO<B> andThenIO<B>(IO<B> other) => IOAndThen(this, () => other);
+
   IO<A> foreach(void Function(A) f) => IOForeach(this, f);
 
   IO<A> filter(bool Function(A) f) => IOFilter(this, f);
@@ -36,8 +38,8 @@ sealed class IO<A> {
 
   IO<A> failWith(FutureOr<Exception?> Function(A) f) => IOFailWith(this, f);
 
-  IO<A> failIf(bool Function(A) f, {Exception? exception, String? message}) =>
-      IOFailIf(this, f, exception ?? Exception(message ?? "IOApp error"));
+  IO<A> failIf(bool Function(A) f, {Exception? exception, String? message, Exception Function(A)? fun}) =>
+      IOFailIf(this, f, exception, fun);
 
   IO<A> retry(int retryCount, {Duration interval = const Duration(milliseconds: 10)}) =>
       IORetry(this, retryCount, interval);
@@ -171,6 +173,8 @@ class IOAndThen<A, B> extends IO<B> {
   final IO<A> last;
   final IO<B> Function() computation;
   IOAndThen(this.last, this.computation);
+
+  IO<B> apply() => computation();
 }
 
 class IOForeach<A> extends IO<A> {
@@ -277,9 +281,14 @@ class IOFailWith<A> extends IO<A>{
 class IOFailIf<A> extends IO<A>{
   final IO<A> last;
   final bool Function(A) computation;
-  final Exception exception;
-  IOFailIf(this.last, this.computation, this.exception);
+  final Exception? exception;
+  final Exception Function(A)? fun;
+  IOFailIf(this.last, this.computation, this.exception, this.fun){
+    assert(exception != null || fun != null);
+  }
   bool apply(A value) => computation(value);
+
+  Exception funApply(A value) => fun!(value);
 }
 
 class IOFromError<A> extends IO<A>{

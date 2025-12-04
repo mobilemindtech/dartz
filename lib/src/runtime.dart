@@ -122,7 +122,7 @@ class Runtime {
   }
 
   Future<Option<List>> evalMany(List<IO> items, {bool continueOnError = true, int? maxParallelism}) async {
-    final results = List.filled(items.length, null);
+    final results = List<Object?>.filled(items.length, null);
     final completer = Completer<Option<List>>();
     var completed = 0;
 
@@ -136,7 +136,7 @@ class Runtime {
         var r = await eval(items[index]);
         switch (r) {
           case Ok(:var value) when value.nonEmpty:
-          //print("index=$index");
+            print("index=$index, $value");
             results[index] = value.get();
             completed++;
             if (completed == items.length) {
@@ -208,7 +208,7 @@ class Runtime {
       IOAndThen pt =>
       switch(await eval(pt.last)){
         Ok(:var value) when value.nonEmpty =>
-        switch(await eval(pt.computation())){
+        switch(await eval(pt.apply())){
           Ok(:var value) => Result.ok(value.cast()),
           Failure(:var failure) => Result.failure(failure)
         },
@@ -327,7 +327,7 @@ class Runtime {
               r.flatMap((opt) =>
                   opt.map(pt.apply)
                       .filter(identity)
-                      .map((_) => Result.failure<Option<A>>(pt.exception))
+                      .map((_) => Result.failure<Option<A>>(pt.exception ?? pt.funApply(opt.value)))
                       .or(Result.ok<Option<A>>(opt.map((x) => x as A)))
           )),
 

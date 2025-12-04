@@ -27,10 +27,13 @@ extension IOAppIO<A> on IO<A> {
 
   Future<Result<Option<A>>> safeRun({int? workerCount}) async =>
       IOApp(workerCount: workerCount).safeRun(this);
+
+  // AndThan
+  IO operator |(IO other) => andThenIO(other);
 }
 
 extension ListIO on List<IO> {
-  Future unsafeRun({int? workerCount, bool continueOnError = true}) =>
+  Future unsafeRun({int? workerCount = null, bool continueOnError = true}) async =>
     IOApp(workerCount: workerCount)
         .unsafeRunMany(this, continueOnError: continueOnError);
 }
