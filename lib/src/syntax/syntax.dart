@@ -36,6 +36,16 @@ extension ListIO on List<IO> {
   Future unsafeRun({int? workerCount = null, bool continueOnError = true}) async =>
     IOApp(workerCount: workerCount)
         .unsafeRunMany(this, continueOnError: continueOnError);
+
+  IO<Unit> get toIO  {
+    assert(this.isNotEmpty);
+    IO? io;
+    for(var it in this){
+      if(io == null) io = it;
+      else io = io.andThenIO(it);
+    }
+    return io!.mapToUnit;
+  }
 }
 
 extension AnyExn<T> on T {
